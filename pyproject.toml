@@ -2,4 +2,9 @@
 name = "myfastailearn"
 version = "0.1.0"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "fastapi>=0.136.1",
+    "uvicorn>=0.46.0",
+    "openai>=1.30.0",
+    "numpy>=2.4.4",
+]
