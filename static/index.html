@@ -1,10 +1,9 @@
-NEW_FILE_CODE
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>客户服务聊天机器人</title>
+    <title>智能聊天机器人</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -32,6 +31,34 @@ NEW_FILE_CODE
             border-bottom: 1px solid #eee;
         }
 
+        .ai-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .ai-btn {
+            padding: 8px 16px;
+            border: 2px solid #ddd;
+            background-color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .ai-btn.active {
+            background-color: #2196f3;
+            color: white;
+            border-color: #2196f3;
+        }
+
+        .ai-btn:hover:not(.active) {
+            border-color: #2196f3;
+            color: #2196f3;
+        }
+
         .chat-messages {
             flex: 1;
             overflow-y: auto;
@@ -57,6 +84,12 @@ NEW_FILE_CODE
         .bot-message {
             background-color: #f5f5f5;
             margin-right: auto;
+        }
+
+        .message-info {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 5px;
         }
 
         .input-area {
@@ -116,12 +149,22 @@ NEW_FILE_CODE
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h1>🤖 客户服务聊天机器人</h1>
-            <p>有任何问题都可以问我哦！</p>
+            <h1>🤖 智能聊天机器人</h1>
+            <p>选择 AI 助手开始对话</p>
+        </div>
+
+        <div class="ai-selector">
+            <button class="ai-btn active" id="nlp-btn" onclick="switchAI('nlp')">
+                📚 NLP 课程助教
+            </button>
+            <button class="ai-btn" id="fastgpt-btn" onclick="switchAI('fastgpt')">
+                📖 知识库助手
+            </button>
         </div>
 
         <div class="chat-messages" id="chat-messages">
             <div class="message bot-message">
+                <div class="message-info">NLP 课程助教</div>
                 你好！我是自然语言处理课程助教，有什么可以帮助你的吗？
             </div>
         </div>
@@ -135,7 +178,76 @@ NEW_FILE_CODE
 
     <script>
         let sessionId = localStorage.getItem('chat_session_id') || null;
+        let currentAI = localStorage.getItem('current_ai') || 'nlp';
 
+        // 初始化 AI 选择
+        window.onload = function() {
+            document.getElementById('question-input').focus();
+            updateAIBtns();
+            updateWelcomeMessage();
+        };
+
+        // 切换 AI
+        function switchAI(aiType) {
+            currentAI = aiType;
+            localStorage.setItem('current_ai', aiType);
+
+            // 更新按钮状态
+            updateAIBtns();
+
+            // 清空聊天界面并显示新的欢迎消息
+            const messagesContainer = document.getElementById('chat-messages');
+            messagesContainer.innerHTML = '';
+
+            addMessage(getWelcomeMessage(), 'bot');
+
+            // 可选：切换 AI 时生成新的 session_id
+            // sessionId = null;
+            // localStorage.removeItem('chat_session_id');
+        }
+
+        // 更新 AI 按钮状态
+        function updateAIBtns() {
+            const nlpBtn = document.getElementById('nlp-btn');
+            const fastgptBtn = document.getElementById('fastgpt-btn');
+
+            if (currentAI === 'nlp') {
+                nlpBtn.classList.add('active');
+                fastgptBtn.classList.remove('active');
+            } else {
+                fastgptBtn.classList.add('active');
+                nlpBtn.classList.remove('active');
+            }
+        }
+
+        // 获取欢迎消息
+        function getWelcomeMessage() {
+            if (currentAI === 'nlp') {
+                return {
+                    text: '你好！我是自然语言处理课程助教，有什么可以帮助你的吗？',
+                    aiName: 'NLP 课程助教'
+                };
+            } else {
+                return {
+                    text: '你好！我是知识库助手，可以基于知识库内容回答你的问题。',
+                    aiName: '知识库助手'
+                };
+            }
+        }
+
+        // 更新欢迎消息
+        function updateWelcomeMessage() {
+            const messagesContainer = document.getElementById('chat-messages');
+            const welcomeMsg = getWelcomeMessage();
+            messagesContainer.innerHTML = `
+                <div class="message bot-message">
+                    <div class="message-info">${welcomeMsg.aiName}</div>
+                    ${welcomeMsg.text}
+                </div>
+            `;
+        }
+
+        // 发送消息函数
         async function sendMessage() {
             const inputElement = document.getElementById('question-input');
             const sendBtn = document.getElementById('send-btn');
@@ -164,7 +276,8 @@ NEW_FILE_CODE
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
                 const requestBody = {
-                    question: question
+                    question: question,
+                    ai_type: currentAI
                 };
 
                 if (sessionId) {
@@ -190,7 +303,7 @@ NEW_FILE_CODE
                 sessionId = data.session_id;
                 localStorage.setItem('chat_session_id', sessionId);
 
-                addMessage(data.answer, 'bot');
+                addMessage(data.answer, 'bot', data.ai_type);
 
             } catch (error) {
                 console.error('Error:', error);
@@ -202,15 +315,27 @@ NEW_FILE_CODE
             }
         }
 
-        function addMessage(text, sender) {
+        // 添加消息到聊天界面
+        function addMessage(text, sender, aiType = null) {
             const messagesContainer = document.getElementById('chat-messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
-            messageDiv.textContent = text;
+
+            if (sender === 'bot' && aiType) {
+                const aiName = aiType === 'nlp' ? 'NLP 课程助教' : '知识库助手';
+                messageDiv.innerHTML = `
+                    <div class="message-info">${aiName}</div>
+                    ${text}
+                `;
+            } else {
+                messageDiv.textContent = text;
+            }
+
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
+        // 清除对话历史
         async function clearConversation() {
             if (sessionId) {
                 try {
@@ -222,8 +347,7 @@ NEW_FILE_CODE
                         localStorage.removeItem('chat_session_id');
                         sessionId = null;
 
-                        const messagesContainer = document.getElementById('chat-messages');
-                        messagesContainer.innerHTML = '<div class="message bot-message">你好！我是自然语言处理课程助教，有什么可以帮助你的吗？</div>';
+                        updateWelcomeMessage();
 
                         alert('对话历史已清除！');
                     } else {
@@ -236,15 +360,12 @@ NEW_FILE_CODE
             }
         }
 
+        // 支持回车键发送
         document.getElementById('question-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 sendMessage();
             }
         });
-
-        window.onload = function() {
-            document.getElementById('question-input').focus();
-        };
     </script>
 </body>
 </html>
