@@ -1,22 +1,12 @@
 import os
 from openai import OpenAI
 
-
-QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-QWEN_CHAT_MODEL = "qwen-plus"
-
-
-api_key = os.getenv("DASHSCOPE_API_KEY")
-if not api_key:
-    raise RuntimeError("没有读取到环境变量 DASHSCOPE_API_KEY")
-
 client = OpenAI(
-    api_key=api_key,
-    base_url=QWEN_BASE_URL,
-)
+    api_key=os.environ.get('DEEPSEEK_API_KEY'),
+    base_url="https://api.deepseek.com")
 
 completion = client.chat.completions.create(
-    model=QWEN_CHAT_MODEL,
+    model="deepseek-v4-flash",
     messages=[
         {
             "role": "system",
@@ -27,8 +17,9 @@ completion = client.chat.completions.create(
             "content": "请用三句话解释什么是自然语言处理。",
         },
     ],
-    temperature=0.3,
+    stream=False,
+    reasoning_effort="high",
+    extra_body={"thinking": {"type": "enabled"}}
 )
-
 answer = completion.choices[0].message.content
 print(answer)
