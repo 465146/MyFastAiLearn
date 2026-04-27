@@ -1,3 +1,4 @@
+NEW_FILE_CODE
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -95,6 +96,21 @@
             color: #666;
             font-style: italic;
         }
+
+        .clear-btn {
+            padding: 5px 10px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .clear-btn:hover {
+            background-color: #d32f2f;
+        }
     </style>
 </head>
 <body>
@@ -114,10 +130,12 @@
             <input type="text" id="question-input" placeholder="请输入你的问题..." />
             <button id="send-btn" onclick="sendMessage()">发送</button>
         </div>
+        <button class="clear-btn" onclick="clearConversation()">清除对话历史</button>
     </div>
 
     <script>
-        // 发送消息函数
+        let sessionId = localStorage.getItem('chat_session_id') || null;
+
         async function sendMessage() {
             const inputElement = document.getElementById('question-input');
             const sendBtn = document.getElementById('send-btn');
@@ -130,39 +148,37 @@
                 return;
             }
 
-            // 禁用发送按钮并显示加载状态
             sendBtn.disabled = true;
             sendBtn.textContent = '发送中...';
 
-            // 添加用户消息到聊天界面
             addMessage(question, 'user');
-
-            // 清空输入框
             inputElement.value = '';
 
             try {
-                // 显示加载提示
                 const loadingDiv = document.createElement('div');
                 loadingDiv.className = 'loading';
                 loadingDiv.id = 'loading-indicator';
                 loadingDiv.textContent = '正在思考中...';
                 messagesContainer.appendChild(loadingDiv);
 
-                // 滚动到底部
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-                // 发送请求到后端
+                const requestBody = {
+                    question: question
+                };
+
+                if (sessionId) {
+                    requestBody.session_id = sessionId;
+                }
+
                 const response = await fetch('/chat', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        question: question
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
-                // 移除加载提示
                 document.getElementById('loading-indicator').remove();
 
                 if (!response.ok) {
@@ -171,42 +187,61 @@
 
                 const data = await response.json();
 
-                // 添加机器人回复到聊天界面
+                sessionId = data.session_id;
+                localStorage.setItem('chat_session_id', sessionId);
+
                 addMessage(data.answer, 'bot');
 
             } catch (error) {
                 console.error('Error:', error);
                 addMessage('抱歉，发生了错误，请稍后重试。', 'bot');
             } finally {
-                // 重新启用发送按钮
                 sendBtn.disabled = false;
                 sendBtn.textContent = '发送';
-
-                // 滚动到底部
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
         }
 
-        // 添加消息到聊天界面
         function addMessage(text, sender) {
             const messagesContainer = document.getElementById('chat-messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
             messageDiv.textContent = text;
             messagesContainer.appendChild(messageDiv);
-
-            // 滚动到底部
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // 支持回车键发送
+        async function clearConversation() {
+            if (sessionId) {
+                try {
+                    const response = await fetch(`/chat/${sessionId}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (response.ok) {
+                        localStorage.removeItem('chat_session_id');
+                        sessionId = null;
+
+                        const messagesContainer = document.getElementById('chat-messages');
+                        messagesContainer.innerHTML = '<div class="message bot-message">你好！我是自然语言处理课程助教，有什么可以帮助你的吗？</div>';
+
+                        alert('对话历史已清除！');
+                    } else {
+                        throw new Error('清除失败');
+                    }
+                } catch (error) {
+                    console.error('Error clearing conversation:', error);
+                    alert('清除对话历史失败，请重试');
+                }
+            }
+        }
+
         document.getElementById('question-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 sendMessage();
             }
         });
 
-        // 页面加载完成后聚焦输入框
         window.onload = function() {
             document.getElementById('question-input').focus();
         };
